@@ -1,0 +1,162 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --accent-color: #4f9cf7;
+  --cursor-size: 12px;
+  --taskbar-height: 54px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: "Segoe UI", "Inter", system-ui, sans-serif;
+  background: #0b0f1a;
+  color: #e2e8f0;
+  user-select: none;
+  overflow: hidden;
+}
+
+.glass {
+  background: rgba(20, 24, 34, 0.6);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-light {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.window-shadow {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.window-anim {
+  transition: transform 160ms ease, opacity 160ms ease, box-shadow 160ms ease;
+}
+
+.window-minimized {
+  transform: scale(0.95);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.desktop-icon {
+  width: 88px;
+  height: 88px;
+}
+
+.context-menu {
+  min-width: 180px;
+}
+
+.snap-preview {
+  border: 2px dashed rgba(255, 255, 255, 0.4);
+  background: rgba(79, 156, 247, 0.12);
+}
+
+.resize-handle {
+  position: absolute;
+  z-index: 30;
+}
+
+.resize-handle.edge {
+  background: transparent;
+}
+
+.resize-handle.corner {
+  width: 16px;
+  height: 16px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes focusPulse {
+  0% { transform: scale(1); opacity: 0.3; }
+  50% { transform: scale(1.1); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 0.3; }
+}
+
+.focus-bg-animation {
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+  animation: focusPulse 8s infinite ease-in-out;
+}
+
+@keyframes pulseUi {
+  0% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.005); filter: brightness(1.1); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+.pulse-ui {
+  animation: pulseUi 4s infinite ease-in-out;
+}
+
+.waves-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.wave {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 200%;
+  height: 100%;
+  background: repeat-x url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 88.7'%3E%3Cpath d='M800 56.9c-155.5 0-204.9-50-405.5-49.9-200 0-250 49.9-394.5 49.9V89h800v-32.1z' fill='%234f9cf7'/%3E%3C/svg%3E");
+  background-size: 800px 100px;
+  animation: waveMove 10s linear infinite;
+}
+
+.wave2 {
+  animation: waveMove 15s linear infinite;
+  opacity: 0.5;
+  bottom: 10px;
+}
+
+@keyframes waveMove {
+  from { transform: translateX(0); }
+  to { transform: translateX(-800px); }
+}
+
+.cursor-small {
+  cursor: default;
+}
+
+.cursor-large * {
+  cursor: default;
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><circle cx='12' cy='12' r='6' fill='white' stroke='black' stroke-width='2'/></svg>")
+      12 12,
+    auto;
+}
