@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ethereal Nexus</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;600&family=Space+Mono:wght@400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #050505;
+            --text-main: #ffffff;
+            --text-muted: #8888aa;
+            --accent: #a5b4fc;
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            overflow: hidden;
+            font-family: 'Space Mono', monospace;
+            color: var(--text-main);
+            height: 100vh;
+            width: 100vw;
+            cursor: none; /* Custom cursor */
+        }
+
+        /* ─── WEBGL LAYER ─── */
+        #canvas-container {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+        }
+
+        /* ─── UI LAYER ─── */
+        .ui-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none; /* Let clicks pass to canvas */
+        }
+
+        /* ─── CARD ─── */
+        .card {
+            position: relative;
+            width: 450px;
+            padding: 3rem 2.5rem;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            pointer-events: auto;
+            opacity: 0; /* GSAP will animate this */
+            transform: translateY(30px);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        /* Animated Gradient Border */
+        .card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 20px; 
+            padding: 1px; 
+            background: linear-gradient(45deg, transparent, var(--accent), transparent); 
+            -webkit-mask: 
+                linear-gradient(#fff 0 0) content-box, 
+                linear-gradient(#fff 0 0); 
+            -webkit-mask-composite: xor; 
+            mask-composite: exclude; 
+            opacity: 0.5;
+        }
+
+        h1 {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 3.5rem;
+            font-weight: 300;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+            background: linear-gradient(to bottom right, #fff, #a5b4fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--accent);
+            margin-bottom: 2rem;
+            display: block;
+        }
+
+        p {
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.8rem 1.5rem;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .btn:hover {
+            background: var(--accent);
+            color: #000;
+            box-shadow: 0 0 20px rgba(165, 180, 252, 0.4);
+        }
+
+        /* ─── CUSTOM CURSOR ─── */
+        .cursor-dot, .cursor-circle {
+            position: fixed;
+            top: 0; left: 0;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 100;
+        }
+        .cursor-dot {
+            width: 6px; height: 6px;
+            background: white;
+        }
+        .cursor-circle {
+            width: 40px; height: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: width 0.3s, height 0.3s, border-color 0.3s;
+        }
+        body.hovering .cursor-circle {
+            width: 60px; height: 60px;
+            border-color: var(--accent);
+            background: rgba(165, 180, 252, 0.1);
+        }
+
+        /* ─── VIGNETTE ─── */
+        .vignette {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            background: radial-gradient(circle, transparent 40%, #000 120%);
+            z-index: 5;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="cursor-dot"></div>
+    <div class="cursor-circle"></div>
+
+    <div id="canvas-container"></div>
+    <div class="vignette"></div>
+
+    <div class="ui-layer">
+        <div class="card">
+            <span class="subtitle">System Online</span>
+            <h1>Ethereal</h1>
+            <p>Domain-warped noise simulation with soft-body particle physics. Hover over the void to displace the fog.</p>
+            <a href="#" class="btn">Initialize</a>
+        </div>
+    </div>
+
+    <script>
+        // ─── CONFIGURATION ───
+        const config = {
+            noiseSpeed: 0.005,
+            noiseScale: 3.0,
+            particleCount: 800,
+            particleSize: 2.5,
+            revealDuration: 2.5
+        };
+
+        // ─── SETUP ───
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        
+        // Orthographic camera for full-screen shader
+        const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+        
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // optimize
+        container.appendChild(renderer.domElement);
+
+        // ─── CURSOR & PHYSICS STATE ───
+        const mouse = new THREE.Vector2(0.5, 0.5); // Normalized (0 to 1)
+        const mouseScreen = { x: window.innerWidth/2, y: window.innerHeight/2 };
+        const cursorDot = document.querySelector('.cursor-dot');
+        const cursorCircle = document.querySelector('.cursor-circle');
+        
+        // Smooth mouse lerping
+        let targetMouse = { x: window.innerWidth/2, y: window.innerHeight/2 };
+        
+        document.addEventListener('mousemove', (e) => {
+            targetMouse.x = e.clientX;
+            targetMouse.y = e.clientY;
+            
+            // Normalize for shader
+            mouse.x = e.clientX / window.innerWidth;
+            mouse.y = 1.0 - (e.clientY / window.innerHeight);
+        });
+
+        // Hover Effects
+        document.querySelectorAll('a, .card').forEach(el => {
+            el.addEventListener('mouseenter', () => document.body.classList.add('hovering'));
+            el.addEventListener('mouseleave', () => document.body.classList.remove('hovering'));
+        });
+
+        // ─── SHADER MATERIAL (GLSL) ───
+        // Uses Domain Warping FBM for smoke/clouds
+        const smokeMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                uTime: { value: 0 },
+                uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+                uMouse: { value: mouse },
+                uReveal: { value: 0.0 }, // Controlled by GSAP
+                uColorA: { value: new THREE.Color("#050510") },
+                uColorB: { value: new THREE.Color("#1e1e3f") },
+                uAccent: { value: new THREE.Color("#6366f1") }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform float uTime;
+                uniform vec2 uResolution;
+                uniform vec2 uMouse;
+                uniform float uReveal; // 0.0 to 1.0
+                uniform vec3 uColorA;
+                uniform vec3 uColorB;
+                uniform vec3 uAccent;
+                
+                varying vec2 vUv;
+
+                // ── NOISE FUNCTIONS ──
+                float random (in vec2 st) {
+                    return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+                }
+
+                float noise (in vec2 st) {
+                    vec2 i = floor(st);
+                    vec2 f = fract(st);
+                    float a = random(i);
+                    float b = random(i + vec2(1.0, 0.0));
+                    float c = random(i + vec2(0.0, 1.0));
+                    float d = random(i + vec2(1.0, 1.0));
+                    vec2 u = f * f * (3.0 - 2.0 * f);
+                    return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+                }
+
+                #define OCTAVES 5
+                float fbm (in vec2 st) {
+                    float value = 0.0;
+                    float amplitude = 0.5;
+                    float frequency = 0.0;
+                    for (int i = 0; i < OCTAVES; i++) {
+                        value += amplitude * noise(st);
+                        st *= 2.0;
+                        amplitude *= 0.5;
+                    }
+                    return value;
+                }
+
+                // ── DOMAIN WARPING ──
+                // f(p) = fbm( p + fbm( p + fbm(p) ) )
+                
+                void main() {
+                    vec2 st = gl_FragCoord.xy / uResolution.xy;
+                    st.x *= uResolution.x / uResolution.y; // Aspect ratio correction
+
+                    // Mouse Interaction (Displacement)
+                    float dist = distance(st, vec2(uMouse.x * (uResolution.x/uResolution.y), uMouse.y));
+                    float mouseInfluence = smoothstep(0.4, 0.0, dist) * 0.5;
+                    
+                    vec2 p = st * 3.0; // Scale
+                    
+                    // Domain Warping Layers
+                    vec2 q = vec2(0.);
+                    q.x = fbm( p + 0.05 * uTime + mouseInfluence);
+                    q.y = fbm( p + vec2(1.0));
+
+                    vec2 r = vec2(0.);
+                    r.x = fbm( p + 1.0*q + vec2(1.7,9.2)+ 0.15*uTime );
+                    r.y = fbm( p + 1.0*q + vec2(8.3,2.8)+ 0.126*uTime);
+
+                    float f = fbm(p + r);
+
+                    // ── COLOR MIXING ──
+                    vec3 color = mix(uColorA, uColorB, clamp((f*f)*4.0, 0.0, 1.0));
+                    color = mix(color, uAccent, clamp(length(q), 0.0, 1.0));
+                    color = mix(color, vec3(1.0), clamp(length(r.x), 0.0, 1.0)*0.2);
+
+                    // ── REVEAL EFFECT (FOG WIPE) ──
+                    // Create a mask based on UV.x and the uReveal uniform
+                    float revealMask = smoothstep(uReveal - 0.3, uReveal + 0.3, vUv.x + (f * 0.2)); 
+                    
+                    // Darken/Clear the fog where revealed
+                    // We invert it so 0 is fog, 1 is clear, or vice versa depending on desire
+                    // Let's make the fog "recede" to the right
+                    
+                    vec3 finalColor = mix(color, uColorA * 0.8, revealMask);
+
+                    // Add vignette
+                    float vig = 1.0 - smoothstep(0.4, 1.5, length(vUv - 0.5));
+                    
+                    gl_FragColor = vec4(finalColor * vig, 1.0);
+                }
+            `
+        });
+
+        // Full screen plane for the shader
+        const plane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), smokeMaterial);
+        scene.add(plane);
+
+        // ─── PARTICLE SYSTEM (MINI-PHYSICS) ───
+        const pGeometry = new THREE.BufferGeometry();
+        const pCount = config.particleCount;
+        const positions = new Float32Array(pCount * 3);
+        const originalPositions = new Float32Array(pCount * 3);
+        const velocities = new Float32Array(pCount * 3); // x, y, z
+
+        for(let i = 0; i < pCount; i++) {
+            // Random positions across the screen
+            const x = (Math.random() - 0.5) * 4; // Width approx
+            const y = (Math.random() - 0.5) * 2.5; // Height approx
+            const z = 0;
+            
+            positions[i*3] = x;
+            positions[i*3+1] = y;
+            positions[i*3+2] = z;
+            
+            originalPositions[i*3] = x;
+            originalPositions[i*3+1] = y;
+            originalPositions[i*3+2] = z;
+            
+            velocities[i*3] = 0;
+            velocities[i*3+1] = 0;
+            velocities[i*3+2] = 0;
+        }
+
+        pGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+        const pMaterial = new THREE.PointsMaterial({
+            color: 0xa5b4fc,
+            size: config.particleSize,
+            transparent: true,
+            opacity: 0.6,
+            blending: THREE.AdditiveBlending,
+            sizeAttenuation: false // Keep size constant regardless of depth
+        });
+
+        const particles = new THREE.Points(pGeometry, pMaterial);
+        scene.add(particles);
+
+        // ─── ANIMATION LOOP ───
+        const clock = new THREE.Clock();
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+            
+            // 1. Update Shader
+            smokeMaterial.uniforms.uTime.value = time;
+
+            // 2. Cursor LERP
+            mouseScreen.x += (targetMouse.x - mouseScreen.x) * 0.1;
+            mouseScreen.y += (targetMouse.y - mouseScreen.y) * 0.1;
+            cursorDot.style.left = mouseScreen.x + 'px';
+            cursorDot.style.top = mouseScreen.y + 'px';
+            cursorCircle.style.left = mouseScreen.x + 'px';
+            cursorCircle.style.top = mouseScreen.y + 'px';
+
+            // 3. Particle Physics (CPU)
+            // Get positions array
+            const posAttr = particles.geometry.attributes.position;
+            const posArr = posAttr.array;
+            
+            // Convert mouse to world space (Approx for Ortho camera)
+            // Screen width in ThreeJS units is 2, Height is 2
+            const mouseWX = (mouse.x * 2 - 1) * (window.innerWidth / window.innerHeight); 
+            const mouseWY = (mouse.y * 2 - 1); 
+
+            for(let i = 0; i < pCount; i++) {
+                const px = posArr[i*3];
+                const py = posArr[i*3+1];
+                
+                // Distance to mouse
+                const dx = px - mouseWX;
+                const dy = py - mouseWY;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                // Repel Force (Soft Collision)
+                if(dist < 0.3) {
+                    const force = (0.3 - dist) * 0.15;
+                    velocities[i*3] += dx * force;
+                    velocities[i*3+1] += dy * force;
+                }
+
+                // Return to origin (Spring Force)
+                const ox = originalPositions[i*3];
+                const oy = originalPositions[i*3+1];
+                
+                velocities[i*3] += (ox - px) * 0.02;
+                velocities[i*3+1] += (oy - py) * 0.02;
+
+                // Apply Friction
+                velocities[i*3] *= 0.92;
+                velocities[i*3+1] *= 0.92;
+
+                // Update Position
+                posArr[i*3] += velocities[i*3];
+                posArr[i*3+1] += velocities[i*3+1];
+            }
+            posAttr.needsUpdate = true;
+
+            // 4. Render
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // ─── GSAP ANIMATIONS ───
+        
+        // 1. Reveal Fog Wipe
+        gsap.to(smokeMaterial.uniforms.uReveal, {
+            value: 1.0,
+            duration: 3.5,
+            ease: "power2.inOut",
+            delay: 0.5
+        });
+
+        // 2. UI Entrance
+        const tl = gsap.timeline({ delay: 1 });
+        tl.to(".card", { 
+            opacity: 1, 
+            y: 0, 
+            duration: 1.2, 
+            ease: "power3.out" 
+        })
+        .from("h1", { 
+            y: 20, 
+            opacity: 0, 
+            duration: 1, 
+            ease: "back.out(1.7)" 
+        }, "-=0.8")
+        .from("p", { 
+            opacity: 0, 
+            duration: 1 
+        }, "-=0.6")
+        .from(".btn", { 
+            scale: 0.8, 
+            opacity: 0, 
+            duration: 0.5 
+        }, "-=0.4");
+
+        // ─── RESIZE HANDLER ───
+        window.addEventListener('resize', () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            renderer.setSize(width, height);
+            
+            // Update Uniforms
+            smokeMaterial.uniforms.uResolution.value.set(width, height);
+            
+            // Adjust particles if needed (simplified here)
+        });
+
+    </script>
+</body>
+</html>

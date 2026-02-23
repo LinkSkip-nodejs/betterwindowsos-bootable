@@ -8,15 +8,30 @@ const INITIAL_SNAKE = [
 ];
 const INITIAL_DIRECTION = { x: 0, y: -1 };
 
+type Difficulty = "easy" | "medium" | "hard";
+const SPEEDS: Record<Difficulty, number> = { easy: 200, medium: 130, hard: 70 };
+
+const getHighScore = (): number => {
+  try { return parseInt(localStorage.getItem("webos-snake-highscore") ?? "0", 10) || 0; } catch { return 0; }
+};
+const saveHighScore = (score: number) => {
+  try { localStorage.setItem("webos-snake-highscore", String(score)); } catch {}
+};
+
 const SnakeApp = () => {
   const [snake, setSnake] = useState(INITIAL_SNAKE);
   const [food, setFood] = useState({ x: 5, y: 5 });
   const [direction, setDirection] = useState(INITIAL_DIRECTION);
   const [gameOver, setGameOver] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [score, setScore] = useState(0);
+  const [highScore, setHighScore] = useState(getHighScore);
+  const [difficulty, setDifficulty] = useState<Difficulty>("medium");
+  const [started, setStarted] = useState(false);
   const gameLoopRef = useRef<number>();
+  const dirRef = useRef(INITIAL_DIRECTION);
 
-  const generateFood = useCallback((currentSnake: { x: number, y: number }[]) => {
+  const generateFood = useCallback((currentSnake: { x: number; y: number }[]) => {
     let newFood;
     while (true) {
       newFood = {
@@ -31,38 +46,61 @@ const SnakeApp = () => {
   const resetGame = () => {
     setSnake(INITIAL_SNAKE);
     setDirection(INITIAL_DIRECTION);
+    dirRef.current = INITIAL_DIRECTION;
     setFood(generateFood(INITIAL_SNAKE));
     setGameOver(false);
+    setPaused(false);
     setScore(0);
+    setStarted(true);
   };
+
+  // Keep dirRef in sync
+  useEffect(() => { dirRef.current = direction; }, [direction]);
+
+  // Update high score on game over
+  useEffect(() => {
+    if (gameOver && score > highScore) {
+      setHighScore(score);
+      saveHighScore(score);
+    }
+  }, [gameOver, score, highScore]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === " ") {
+        e.preventDefault();
+        if (!gameOver && started) setPaused((p) => !p);
+        return;
+      }
+      if (paused || gameOver) return;
+
+      const dir = dirRef.current;
       switch (e.key) {
         case "ArrowUp":
-          if (direction.y === 0) setDirection({ x: 0, y: -1 });
+          if (dir.y === 0) { const d = { x: 0, y: -1 }; dirRef.current = d; setDirection(d); }
           break;
         case "ArrowDown":
-          if (direction.y === 0) setDirection({ x: 0, y: 1 });
+          if (dir.y === 0) { const d = { x: 0, y: 1 }; dirRef.current = d; setDirection(d); }
           break;
         case "ArrowLeft":
-          if (direction.x === 0) setDirection({ x: -1, y: 0 });
+          if (dir.x === 0) { const d = { x: -1, y: 0 }; dirRef.current = d; setDirection(d); }
           break;
         case "ArrowRight":
-          if (direction.x === 0) setDirection({ x: 1, y: 0 });
+          if (dir.x === 0) { const d = { x: 1, y: 0 }; dirRef.current = d; setDirection(d); }
           break;
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [direction]);
+  }, [paused, gameOver, started]);
 
   useEffect(() => {
-    if (gameOver) return;
+    if (gameOver || paused || !started) return;
 
     const move = () => {
       setSnake((prev) => {
-        const head = { x: prev[0].x + direction.x, y: prev[0].y + direction.y };
+        const d = dirRef.current;
+        const head = { x: prev[0].x + d.x, y: prev[0].y + d.y };
 
         if (
           head.x < 0 ||
@@ -86,16 +124,61 @@ const SnakeApp = () => {
       });
     };
 
-    gameLoopRef.current = window.setInterval(move, 150);
+    gameLoopRef.current = window.setInterval(move, SPEEDS[difficulty]);
     return () => clearInterval(gameLoopRef.current);
-  }, [direction, food, gameOver, generateFood]);
+  }, [direction, food, gameOver, paused, started, difficulty, generateFood]);
+
+  // Start screen
+  if (!started) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-slate-900 p-4 font-mono text-white gap-6">
+        <div className="text-3xl font-bold">🐍 Snake</div>
+        <div className="text-white/50 text-sm">High Score: {highScore}</div>
+
+        <div className="flex flex-col items-center gap-2">
+          <div className="text-xs text-white/40 uppercase tracking-wide">Difficulty</div>
+          <div className="flex gap-2">
+            {(["easy", "medium", "hard"] as Difficulty[]).map((d) => (
+              <button
+                key={d}
+                className={`px-4 py-2 rounded-lg text-sm capitalize ${
+                  difficulty === d
+                    ? "bg-green-600 text-white"
+                    : "bg-white/10 hover:bg-white/20 text-white/70"
+                }`}
+                onClick={() => setDifficulty(d)}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button
+          className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-500 text-lg font-medium"
+          onClick={resetGame}
+        >
+          Start Game
+        </button>
+
+        <div className="text-xs text-white/30 space-y-1 text-center">
+          <div>Arrow Keys to move</div>
+          <div>Space to pause</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col items-center justify-center bg-slate-900 p-4 font-mono">
-      <div className="mb-4 flex justify-between w-full max-w-[300px] text-white">
-        <div>SCORE: {score}</div>
-        {gameOver && <div className="text-red-500">GAME OVER</div>}
+      {/* Header */}
+      <div className="mb-3 flex justify-between w-full max-w-[300px] text-white text-sm">
+        <div>Score: {score}</div>
+        <div className="text-white/40">Best: {highScore}</div>
+        <div className="capitalize text-white/40">{difficulty}</div>
       </div>
+
+      {/* Game grid */}
       <div
         className="relative bg-slate-950 border-2 border-slate-700"
         style={{
@@ -109,7 +192,7 @@ const SnakeApp = () => {
         {snake.map((p, i) => (
           <div
             key={i}
-            className="bg-green-500 rounded-sm"
+            className={`rounded-sm ${i === 0 ? "bg-green-400" : "bg-green-500"}`}
             style={{
               gridColumnStart: p.x + 1,
               gridRowStart: p.y + 1,
@@ -123,16 +206,56 @@ const SnakeApp = () => {
             gridRowStart: food.y + 1,
           }}
         />
+
+        {/* Pause overlay */}
+        {paused && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+            <div className="text-white text-xl font-bold">PAUSED</div>
+          </div>
+        )}
+
+        {/* Game over overlay */}
+        {gameOver && (
+          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3">
+            <div className="text-red-400 text-xl font-bold">GAME OVER</div>
+            <div className="text-white text-sm">Score: {score}</div>
+            {score > 0 && score >= highScore && (
+              <div className="text-yellow-400 text-xs">New High Score!</div>
+            )}
+          </div>
+        )}
       </div>
-      {gameOver && (
-        <button
-          className="mt-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500"
-          onClick={resetGame}
-        >
-          RESTART
-        </button>
-      )}
-      <div className="mt-4 text-xs text-white/40">Use Arrow Keys to move</div>
+
+      {/* Controls */}
+      <div className="mt-4 flex gap-3">
+        {gameOver ? (
+          <>
+            <button
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500 text-sm"
+              onClick={resetGame}
+            >
+              Play Again
+            </button>
+            <button
+              className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 text-sm"
+              onClick={() => setStarted(false)}
+            >
+              Menu
+            </button>
+          </>
+        ) : (
+          <button
+            className="px-4 py-2 bg-white/10 text-white/60 rounded-lg hover:bg-white/20 text-sm"
+            onClick={() => setPaused((p) => !p)}
+          >
+            {paused ? "Resume" : "Pause"}
+          </button>
+        )}
+      </div>
+
+      <div className="mt-3 text-xs text-white/30">
+        Arrow Keys to move · Space to {paused ? "resume" : "pause"}
+      </div>
     </div>
   );
 };

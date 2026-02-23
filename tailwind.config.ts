@@ -11,6 +11,10 @@ export default {
       boxShadow: {
         glass: "0 10px 30px rgba(0, 0, 0, 0.3)",
       },
+      fontFamily: {
+        sans: ["var(--font-family)"],
+        mono: ["var(--font-mono)"],
+      },
     },
   },
   plugins: [],

@@ -6,6 +6,12 @@
   --accent-color: #4f9cf7;
   --cursor-size: 12px;
   --taskbar-height: 54px;
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --decel: cubic-bezier(0, 0, 0.2, 1);
+  --accel: cubic-bezier(0.4, 0, 1, 1);
+  --font-family: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
 }
 
 html,
@@ -15,52 +21,155 @@ body,
 }
 
 body {
-  font-family: "Segoe UI", "Inter", system-ui, sans-serif;
+  font-family: var(--font-family);
   background: #0b0f1a;
   color: #e2e8f0;
   user-select: none;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* ── Glass morphism ─────────────────────────────────────── */
+
 .glass {
-  background: rgba(20, 24, 34, 0.6);
-  backdrop-filter: blur(16px);
+  background: rgba(20, 24, 34, 0.75);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  will-change: backdrop-filter;
+  contain: layout style;
 }
 
 .glass-light {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, 0.75);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border: 1px solid rgba(0, 0, 0, 0.08);
+  will-change: backdrop-filter;
+  contain: layout style;
 }
 
+/* ── Window chrome ──────────────────────────────────────── */
+
 .window-shadow {
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.window-shadow-focused {
+  box-shadow:
+    0 12px 48px rgba(0, 0, 0, 0.45),
+    0 4px 12px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(79, 156, 247, 0.15);
 }
 
 .window-anim {
-  transition: transform 160ms ease, opacity 160ms ease, box-shadow 160ms ease;
+  transition:
+    transform 200ms var(--smooth),
+    opacity 180ms var(--smooth);
+  will-change: transform, opacity;
 }
 
 .window-minimized {
-  transform: scale(0.95);
+  transform: scale(0.92) translateY(20px);
   opacity: 0;
   pointer-events: none;
 }
 
+/* ── Window animations ──────────────────────────────────── */
+
+@keyframes windowOpen {
+  from {
+    opacity: 0;
+    transform: scale(0.88) translateY(12px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02) translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes windowClose {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.92) translateY(16px);
+  }
+}
+
+@keyframes windowMaximize {
+  from { border-radius: 12px; }
+  to { border-radius: 0; }
+}
+
+@keyframes windowRestore {
+  from { border-radius: 0; }
+  to { border-radius: 12px; }
+}
+
+.window-opening {
+  animation: windowOpen 0.35s var(--spring) both;
+}
+
+.window-closing {
+  animation: windowClose 0.2s var(--accel) both;
+  pointer-events: none;
+}
+
+/* ── Desktop icon ───────────────────────────────────────── */
+
 .desktop-icon {
   width: 88px;
   height: 88px;
+  transition: transform 0.2s var(--spring), background 0.15s var(--smooth);
 }
+
+.desktop-icon:hover {
+  transform: translateY(-2px);
+}
+
+.desktop-icon:active {
+  transform: scale(0.95);
+}
+
+/* ── Context menu ───────────────────────────────────────── */
 
 .context-menu {
   min-width: 180px;
+  animation: contextMenuIn 0.15s var(--decel) both;
 }
+
+@keyframes contextMenuIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ── Snap preview ───────────────────────────────────────── */
 
 .snap-preview {
   border: 2px dashed rgba(255, 255, 255, 0.4);
   background: rgba(79, 156, 247, 0.12);
+  border-radius: 12px;
+  transition: all 0.2s var(--smooth);
+
 }
+
+/* ── Resize handles ─────────────────────────────────────── */
 
 .resize-handle {
   position: absolute;
@@ -76,6 +185,8 @@ body {
   height: 16px;
 }
 
+/* ── UI Animations ──────────────────────────────────────── */
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -87,14 +198,77 @@ body {
   }
 }
 
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
 @keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideUp {
   from {
-    transform: translateX(100%);
+    opacity: 0;
+    transform: translateY(12px);
   }
   to {
-    transform: translateX(0);
+    opacity: 1;
+    transform: translateY(0);
   }
 }
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ── Focus mode ─────────────────────────────────────────── */
 
 @keyframes focusPulse {
   0% { transform: scale(1); opacity: 0.3; }
@@ -116,6 +290,8 @@ body {
 .pulse-ui {
   animation: pulseUi 4s infinite ease-in-out;
 }
+
+/* ── Waves ──────────────────────────────────────────────── */
 
 .waves-container {
   position: absolute;
@@ -150,6 +326,151 @@ body {
   to { transform: translateX(-800px); }
 }
 
+/* ── Boot screen ────────────────────────────────────────── */
+
+@keyframes bootGlow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes bootSlide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(200%); }
+}
+
+.boot-progress-bar {
+  position: relative;
+  overflow: hidden;
+}
+
+.boot-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: bootSlide 1.5s linear infinite;
+}
+
+/* ── Taskbar ────────────────────────────────────────────── */
+
+.taskbar-btn {
+  transition: all 0.15s var(--smooth);
+  position: relative;
+}
+
+.taskbar-btn::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%) scaleX(0);
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent-color);
+  transition: transform 0.2s var(--spring);
+}
+
+.taskbar-btn:hover::after,
+.taskbar-btn.active::after {
+  transform: translateX(-50%) scaleX(1);
+}
+
+.taskbar-btn:hover {
+  transform: translateY(-1px);
+}
+
+.taskbar-btn:active {
+  transform: scale(0.92);
+}
+
+/* ── Tooltip ────────────────────────────────────────────── */
+
+.tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(20, 24, 34, 0.95);
+  border: 1px solid rgba(255,255,255,0.08);
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s var(--smooth), transform 0.15s var(--smooth);
+  z-index: 100;
+}
+
+.tooltip-trigger:hover .tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── Notification toast ─────────────────────────────────── */
+
+@keyframes notifSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes notifSlideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%) scale(0.95);
+  }
+}
+
+.notif-enter {
+  animation: notifSlideIn 0.3s var(--spring) both;
+}
+
+.notif-exit {
+  animation: notifSlideOut 0.2s var(--accel) both;
+}
+
+/* ── Scrollbar styling ──────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+/* ── Cursors ────────────────────────────────────────────── */
+
 .cursor-small {
   cursor: default;
 }
@@ -159,4 +480,118 @@ body {
   cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><circle cx='12' cy='12' r='6' fill='white' stroke='black' stroke-width='2'/></svg>")
       12 12,
     auto;
+}
+
+/* ── Focus indicators ───────────────────────────────────── */
+
+*:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 1px;
+}
+
+/* ── High contrast mode ─────────────────────────────────── */
+
+.high-contrast {
+  --accent-color: #ffff00;
+}
+
+.high-contrast .glass {
+  background: rgba(0, 0, 0, 0.9);
+  border: 2px solid #fff;
+}
+
+.high-contrast .glass-light {
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid #000;
+  color: #000;
+}
+
+.high-contrast .window-shadow {
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.high-contrast button:hover {
+  outline: 2px solid #ffff00;
+}
+
+/* ── Smooth transitions for interactive elements ────────── */
+
+button {
+  transition: background 0.15s var(--smooth), transform 0.1s var(--smooth);
+}
+
+input, textarea {
+  transition: border-color 0.15s var(--smooth), box-shadow 0.15s var(--smooth);
+}
+
+input:focus, textarea:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(79, 156, 247, 0.2);
+}
+
+/* ── Loading spinner ────────────────────────────────────── */
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255,255,255,0.1);
+  border-top-color: var(--accent-color);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* ── Easter egg - Konami code glow ──────────────────────── */
+
+@keyframes rainbowBorder {
+  0% { border-color: #ff0000; }
+  17% { border-color: #ff8800; }
+  33% { border-color: #ffff00; }
+  50% { border-color: #00ff00; }
+  67% { border-color: #0088ff; }
+  83% { border-color: #8800ff; }
+  100% { border-color: #ff0000; }
+}
+
+.rainbow-mode .window-shadow {
+  animation: rainbowBorder 3s linear infinite;
+  border-width: 2px;
+}
+
+/* ── Touch friendly ─────────────────────────────────────── */
+
+@media (pointer: coarse) {
+  .resize-handle.corner {
+    width: 24px;
+    height: 24px;
+  }
+
+  .resize-handle.edge {
+    min-width: 12px;
+    min-height: 12px;
+  }
+
+  button {
+    min-height: 36px;
+    min-width: 36px;
+  }
+}
+
+/* ── Reduced motion ─────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

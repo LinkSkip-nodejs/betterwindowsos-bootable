@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDragResize } from "./useDragResize";
 import { clamp } from "../utils/clamp";
 import { getSnapTarget, type SnapTarget } from "./snap";
 import type { WindowState } from "../state/store";
+import { sounds } from "../utils/sounds";
 
 type WindowFrameProps = {
   win: WindowState;
@@ -10,6 +11,7 @@ type WindowFrameProps = {
   isFocused: boolean;
   isFocusTarget?: boolean;
   theme: "light" | "dark";
+  muted: boolean;
   onFocus: () => void;
   onMove: (x: number, y: number) => void;
   onResize: (x: number, y: number, w: number, h: number) => void;
@@ -27,6 +29,7 @@ export const WindowFrame = ({
   isFocused,
   isFocusTarget,
   theme,
+  muted,
   onFocus,
   onMove,
   onResize,
@@ -38,6 +41,15 @@ export const WindowFrame = ({
   children,
 }: WindowFrameProps) => {
   const { startDrag, startResize } = useDragResize();
+  const [isNew, setIsNew] = useState(true);
+  const [closing, setClosing] = useState(false);
+  const frameRef = useRef<HTMLDivElement>(null);
+
+  // Open animation on mount
+  useEffect(() => {
+    const t = setTimeout(() => setIsNew(false), 350);
+    return () => clearTimeout(t);
+  }, []);
 
   const frameStyle = useMemo(() => {
     if (win.maximized && bounds) {
@@ -73,7 +85,9 @@ export const WindowFrame = ({
         },
         onDragEnd: (clientX, clientY) => {
           if (!bounds) return;
-          onSnapCommit(getSnapTarget(clientX, clientY, bounds));
+          const target = getSnapTarget(clientX, clientY, bounds);
+          if (target && !muted) sounds.snap();
+          onSnapCommit(target);
           onSnapPreview(null);
         },
       }
@@ -82,15 +96,7 @@ export const WindowFrame = ({
 
   const startWindowResize = (
     event: React.PointerEvent,
-    direction:
-      | "n"
-      | "s"
-      | "e"
-      | "w"
-      | "ne"
-      | "nw"
-      | "se"
-      | "sw"
+    direction: "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw"
   ) => {
     if (win.maximized) return;
     onFocus();
@@ -111,9 +117,49 @@ export const WindowFrame = ({
     );
   };
 
+  const handleClose = () => {
+    if (!muted) sounds.windowClose();
+    setClosing(true);
+    setTimeout(onClose, 200);
+  };
+
+  const handleMinimize = () => {
+    if (!muted) sounds.minimize();
+    onMinimize();
+  };
+
+  const handleMaximize = () => {
+    if (!muted) sounds.maximize();
+    onToggleMaximize();
+  };
+
+  const handleTitlebarContext = (e: React.MouseEvent) => {
+    e.preventDefault();
+    window.dispatchEvent(
+      new CustomEvent("webos:contextmenu", {
+        detail: {
+          type: "titlebar",
+          x: e.clientX,
+          y: e.clientY,
+          actions: [
+            { id: "minimize", label: "Minimize", onClick: handleMinimize },
+            { id: "maximize", label: win.maximized ? "Restore" : "Maximize", onClick: handleMaximize },
+            { id: "sep1", label: "─────────", onClick: () => {} },
+            { id: "close", label: "Close", onClick: handleClose },
+          ],
+        },
+      })
+    );
+  };
+
   return (
     <div
-      className={`absolute pointer-events-auto window-shadow window-anim rounded-xl overflow-hidden border ${
+      ref={frameRef}
+      role="dialog"
+      aria-label={win.title}
+      className={`absolute pointer-events-auto ${isFocused ? 'window-shadow-focused' : 'window-shadow'} window-anim overflow-hidden border ${
+        win.maximized ? 'rounded-none' : 'rounded-xl'
+      } ${
         theme === "dark"
           ? isFocused
             ? "border-white/20 bg-slate-900/80"
@@ -121,7 +167,7 @@ export const WindowFrame = ({
           : isFocused
             ? "border-black/20 bg-white/80"
             : "border-black/10 bg-white/70"
-      } ${win.minimized ? "window-minimized" : ""}`}
+      } ${win.minimized ? "window-minimized" : ""} ${isNew && !win.minimized ? "window-opening" : ""} ${closing ? "window-closing" : ""}`}
       style={{
         zIndex: isFocusTarget ? 1000 : win.z,
         ...frameStyle,
@@ -129,36 +175,44 @@ export const WindowFrame = ({
       onPointerDown={onFocus}
     >
       <div
-        className={`flex items-center justify-between px-3 h-10 text-sm border-b ${
+        className={`flex items-center justify-between px-3 h-10 text-sm border-b select-none ${
           theme === "dark"
             ? "bg-slate-900/70 border-white/10"
             : "bg-white/70 border-black/10"
         }`}
         onPointerDown={startWindowDrag}
+        onDoubleClick={handleMaximize}
+        onContextMenu={handleTitlebarContext}
       >
-        <div className="flex items-center gap-2 text-slate-100">
-          <span>{win.icon}</span>
-          <span className="font-medium">{win.title}</span>
+        <div className="flex items-center gap-2 text-slate-100 min-w-0">
+          <span aria-hidden="true">{win.icon}</span>
+          <span className="font-medium truncate">{win.title}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 shrink-0">
           <button
-            className="h-7 w-7 rounded-md hover:bg-white/10"
+            className="h-7 w-7 rounded-md hover:bg-white/10 flex items-center justify-center transition-colors"
             onPointerDown={(event) => event.stopPropagation()}
-            onClick={onMinimize}
+            onClick={handleMinimize}
+            aria-label="Minimize"
+            title="Minimize"
           >
             ─
           </button>
           <button
-            className="h-7 w-7 rounded-md hover:bg-white/10"
+            className="h-7 w-7 rounded-md hover:bg-white/10 flex items-center justify-center transition-colors"
             onPointerDown={(event) => event.stopPropagation()}
-            onClick={onToggleMaximize}
+            onClick={handleMaximize}
+            aria-label={win.maximized ? "Restore" : "Maximize"}
+            title={win.maximized ? "Restore" : "Maximize"}
           >
             {win.maximized ? "🗗" : "🗖"}
           </button>
           <button
-            className="h-7 w-7 rounded-md hover:bg-red-500/70"
+            className="h-7 w-7 rounded-md hover:bg-red-500/70 flex items-center justify-center transition-colors"
             onPointerDown={(event) => event.stopPropagation()}
-            onClick={onClose}
+            onClick={handleClose}
+            aria-label="Close"
+            title="Close"
           >
             ✕
           </button>

@@ -1,0 +1,20 @@
+{
+  "appId": "com.webos.better-windows",
+  "productName": "BetterWindowsOS",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*"
+  ],
+  "win": {
+    "target": "portable"
+  },
+  "linux": {
+    "target": "dir",
+    "category": "System",
+    "executableName": "BetterWindowsOS"
+  },
+  "asar": true
+}

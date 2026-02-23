@@ -1,6 +1,7 @@
 import DesktopIcons from "./DesktopIcons";
 import { useStore, wallpaperStyles } from "../state/store";
 import WidgetManager from "./widgets/WidgetManager";
+import { findChildByName } from "../fs/fsOps";
 
 const Desktop = () => {
   const theme = useStore((s) => s.theme);

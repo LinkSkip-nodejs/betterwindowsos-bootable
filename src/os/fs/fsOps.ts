@@ -197,6 +197,33 @@ export const writeFile = (state: FsState, id: string, content: string) => {
   };
 };
 
+export const copyNode = (state: FsState, id: string, targetParentId: string): FsState => {
+  const node = state.nodes[id];
+  const target = state.nodes[targetParentId];
+  if (!node || !target || target.type !== "folder") return state;
+
+  const newNode: FsNode = {
+    id: createId(node.type),
+    name: node.name,
+    type: node.type,
+    parentId: targetParentId,
+    content: node.content,
+    children: node.type === "folder" ? [] : undefined,
+  };
+
+  return {
+    ...state,
+    nodes: {
+      ...state.nodes,
+      [target.id]: {
+        ...target,
+        children: [...(target.children ?? []), newNode.id],
+      },
+      [newNode.id]: newNode,
+    },
+  };
+};
+
 export const moveNode = (state: FsState, id: string, newParentId: string) => {
   const node = state.nodes[id];
   const newParent = state.nodes[newParentId];
